@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "BimaGrow | Sub Agent Insurance",
+    "displayName": "BimaGrow | Sub Agent Insurance",
+    "slug": "BimaGrowAgent",
+    "scheme": "BimaGrowAgent",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/splash.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0E0E0C"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/splash.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.BimaGrowAgent"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
