@@ -13,7 +13,7 @@ export default function ConfirmMPIN() {
     const [confirmPin, setConfirmPin] = useState("");
     const toast = useToast();
     const handleConfirm = async (entercode: any) => {
-        if (entercode !== code) {
+        if (entercode !== mpin) {
             showAppToast(toast, "error", "Error", 'MPIN does not match.');
             return;
         }

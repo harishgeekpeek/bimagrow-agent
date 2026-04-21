@@ -25,7 +25,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
     // Enable search only on specific routes
-    const allowedRoutes = ["/policy", "/renewal", "/ledger", "/ledger-detail"];
+    const allowedRoutes = ["/policy", "/renewal", "/ledger", "/ledger-detail", "/notification"];
     const isSearchEnabled = allowedRoutes.includes(pathname);
 
     // Debounce logic

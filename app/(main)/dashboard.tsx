@@ -36,7 +36,7 @@ export default function Dashboard() {
             }
 
         } catch (error) {
-            console.log(error)
+            console.log('error while loading dashboard data', error)
             showAppToast(toast, "error", "Error", 'Failed to load dashboard data.');
         } finally {
             setLoading(false)

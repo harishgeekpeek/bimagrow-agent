@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BimaGrow | Sub Agent Insurance",
-    "displayName": "BimaGrow | Sub Agent Insurance",
+    "name": "BimaGrow: Sub Agent Insurance",
+    "displayName": "BimaGrow: Sub Agent Insurance",
     "slug": "BimaGrowAgent",
     "scheme": "BimaGrowAgent",
     "version": "1.0.0",
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/splash.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,

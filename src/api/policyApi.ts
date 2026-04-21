@@ -4,9 +4,10 @@ export const getMotorPolicies = async (
   search: string,
   offset: number,
   limit: number,
+  status: string,
 ) => {
   const res = await axiosInstance.get(
-    `/api/agentparter/agentmotorpolicy?search=${search}&offset=${offset}&limit=${limit}&is_pagination_required=true`,
+    `/api/agentparter/agentmotorpolicy?search=${search}&policy_status=${status}&offset=${offset}&limit=${limit}&is_pagination_required=true`,
   );
 
   return res.data;
@@ -17,9 +18,10 @@ export const getXMotorPolicies = async (
   policyType: string,
   offset: number,
   limit: number,
+  status: string,
 ) => {
   const res = await axiosInstance.get(
-    `/api/agentparter/agentxmotorpolicy?search=${search}&lob=${policyType}&offset=${offset}&limit=${limit}&is_pagination_required=true`,
+    `/api/agentparter/agentxmotorpolicy?search=${search}&policy_status=${status}&lob=${policyType}&offset=${offset}&limit=${limit}&is_pagination_required=true`,
   );
 
   return res.data;

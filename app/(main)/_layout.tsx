@@ -25,6 +25,8 @@ function LayoutContent() {
                 return "My Ledger";
             case "/ledger-detail":
                 return "My Ledger";
+            case "/notification":
+                return "Notification";
             default:
                 return "";
         }
@@ -41,8 +43,9 @@ function LayoutContent() {
             <View className="flex-1">
                 <Slot />
             </View>
-
-            <Footer />
+            {pathname !== '/notification' && (
+                <Footer />
+            )}
         </View>
     );
 }

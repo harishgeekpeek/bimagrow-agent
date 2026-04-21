@@ -23,6 +23,7 @@ import { router } from "expo-router";
 import AppPopover from "../common/AppPopover";
 import AppReviewModal from "../common/AppReviewModal";
 import AppReviewSheet from "../common/AppReviewSheet";
+import { Badge, BadgeText } from "../ui/badge";
 
 interface HeaderProps {
     type: "dashboard" | "page";
@@ -141,14 +142,15 @@ export default function Header({
                         </View>
                     </View>
 
-                    <View className="flex-row items-center gap-2">
+                    <View className="flex-row items-center gap-2 relative">
                         {/* <TouchableOpacity className="items-center bg-[#23261D] w-[40px] h-[40px] rounded-full justify-center">
                             <MagnifyingGlassIcon size={20} color="#FFFFFF" />
                         </TouchableOpacity> */}
-
-                        <TouchableOpacity className="items-center bg-[#23261D] w-[40px] h-[40px] rounded-full justify-center"
+                        <TouchableOpacity className="items-center bg-[#23261D] w-[48px] h-[48px] rounded-full justify-center"
+                            onPress={() => router.push('/notification')}
                         >
-                            <BellIcon size={20} color="#FFFFFF" />
+                            <View className="w-[8px] h-[8px] z-10 absolute bg-red-600 rounded-full top-[14px] right-[14px]"></View>
+                            <BellIcon size={24} color="#FFFFFF" />
                         </TouchableOpacity>
 
                         {/* <TouchableOpacity

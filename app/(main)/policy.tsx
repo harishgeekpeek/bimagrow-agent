@@ -1,7 +1,7 @@
 import { generatePolicyCopyUrl, getMotorPolicies, getXMotorPolicies } from "@/src/api/policyApi";
 import { useSearch } from "@/src/context/SearchContext";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     RefreshControl,
     ScrollView,
@@ -28,6 +28,13 @@ import { calculatePolicyProgress, formatDate } from "@/src/helper/helper";
 import { showAppToast } from "@/utils/toastUtils";
 import { useToast } from "@/components/ui/toast";
 import config from "@/src/config/config";
+
+import { getAdvisorRating, submitAdvisorRating } from "@/src/api/ratingApi";
+import AdvisorRating from "@/components/customs/AdvisorRating";
+import AdvisorRatingSheet from "@/components/customs/AdvisorRatingSheet";
+import { useAuth } from "@/src/context/AuthContext";
+import { isValidPolicyUrl } from "@/utils/urlValidator";
+import { Policy, Rating } from "@/src/api/types";
 // import { accordionButtonColors, accordionColors } from "@/src/constants/contants";
 
 if (Platform.OS === "android") {
@@ -55,11 +62,15 @@ export default function MyPolicies() {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [advisorRating, setAdvisorRating] = useState<Rating[]>([]);
     const [policyType, setPolicyType] = useState('motor');
     const [tabLoading, setTabLoading] = useState(false);
     const [offset, setOffset] = useState(0);
     const limit = 10;
     const [totalCount, setTotalCount] = useState(0);
+
+    const [isRatingOpen, setIsRatingOpen] = useState(false);
+    const [selectedRatingData, setSelectedRatingData] = useState<any>(null);
 
     const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -72,11 +83,56 @@ export default function MyPolicies() {
         { key: "other", label: "Other", type: "other" },
     ];
 
+    const STATUSTABS = [
+        { key: "Active", label: "Active", type: "Active" },
+        { key: "Complete", label: "Complete", type: "Complete" },
+    ]
+
     const TAB_WIDTH = 100;
     const HORIZONTAL_PADDING = 2;
     const TAB_SPACING = 8;
     const [activeIndex, setActiveIndex] = useState(0);
     const scrollRef = useRef<ScrollView>(null);
+    const [statusType, setStatusType] = useState("Active");
+
+    const [statusIndex, setStatusIndex] = useState(0);
+    const statusSlideAnim = useRef(new Animated.Value(0)).current;
+    const statusScrollRef = useRef<ScrollView>(null);
+
+    const STATUS_TAB_WIDTH = 176;
+
+    const switchStatusTab = (index: number, type: string) => {
+        setStatusIndex(index);
+        setStatusType(type); // ✅ store selected status
+        setOffset(0);
+        setExpandedId(null);
+
+        setPolicies([]);
+        setTabLoading(true);
+
+        fetchPolicies(false, 0, policyType, type); // ✅ pass status
+
+        Animated.timing(statusSlideAnim, {
+            toValue: index,
+            duration: 250,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+        }).start();
+
+        statusScrollRef.current?.scrollTo({
+            x: Math.max(0, index * STATUS_TAB_WIDTH - STATUS_TAB_WIDTH),
+            animated: true,
+        });
+    };
+
+    const statusTranslateX = statusSlideAnim.interpolate({
+        inputRange: [0, STATUSTABS.length - 1],
+        outputRange: [
+            HORIZONTAL_PADDING,
+            HORIZONTAL_PADDING +
+            (STATUS_TAB_WIDTH + TAB_SPACING) * (STATUSTABS.length - 1),
+        ],
+    });
 
     const switchTab = (index: number, type: string) => {
         if (type === policyType) return;
@@ -89,7 +145,7 @@ export default function MyPolicies() {
         setPolicies([]);        // ✅ Clear old list immediately
         setTabLoading(true);    // ✅ Show skeleton
 
-        fetchPolicies(false, 0, type);
+        fetchPolicies(false, 0, type, statusType);
 
         Animated.timing(slideAnim, {
             toValue: index,
@@ -116,7 +172,8 @@ export default function MyPolicies() {
     const fetchPolicies = async (
         isLoadMore = false,
         customOffset?: number,
-        type?: string
+        type?: string,
+        status?: string
     ) => {
         try {
             if (isLoadMore) {
@@ -127,13 +184,14 @@ export default function MyPolicies() {
 
             const finalOffset = customOffset ?? offset;
             const finalType = type ?? policyType;
+            const finalStatus = status ?? statusType;
 
             let res;
 
             if (finalType === "motor") {
-                res = await getMotorPolicies(search, finalOffset, limit);
+                res = await getMotorPolicies(search, finalOffset, limit, finalStatus);
             } else {
-                res = await getXMotorPolicies(search, finalType, finalOffset, limit);
+                res = await getXMotorPolicies(search, finalType, finalOffset, limit, finalStatus);
             }
 
             if (res?.status) {
@@ -156,11 +214,27 @@ export default function MyPolicies() {
         }
     };
 
+    const fetchAdvisorRating = async (
+    ) => {
+        try {
+
+            let res = await getAdvisorRating();
+
+            if (res?.status) {
+                setAdvisorRating(Array.isArray(res?.data) ? res.data : []);
+            }
+        } catch (error) {
+            showAppToast(toast, "error", "Error", "Something went wrong");
+        }
+    };
+
+
     useFocusEffect(
         useCallback(() => {
             setOffset(0);
             setExpandedId(null);
-            fetchPolicies(false, 0);
+            fetchPolicies(false, 0, policyType, statusType);
+            fetchAdvisorRating();
         }, [])
     );
 
@@ -174,7 +248,7 @@ export default function MyPolicies() {
             const delay = setTimeout(() => {
                 setOffset(0);
                 setExpandedId(null);
-                fetchPolicies(false, 0);
+                fetchPolicies(false, 0, policyType, statusType);
             }, 500);
 
             return () => clearTimeout(delay);
@@ -185,14 +259,14 @@ export default function MyPolicies() {
         setRefreshing(true);
         setOffset(0);
         setExpandedId(null);
-        await fetchPolicies(false, 0);
+        await fetchPolicies(false, 0, policyType, statusType);
     };
 
     const handleLoadMore = async () => {
 
         const newOffset = policies.length;
         setOffset(newOffset);
-        await fetchPolicies(true, newOffset);
+        await fetchPolicies(true, newOffset, policyType, statusType);
     };
 
     const hasMore = policies.length < totalCount;
@@ -243,11 +317,31 @@ export default function MyPolicies() {
         </View>
     );
 
+    const advisorRatingMap = useMemo(() => {
+        if (!advisorRating) return {};
+
+        const map: any = {};
+
+        advisorRating.forEach((r: any) => {
+            const key = `${r.advisor_id}_${r.policy_id}`;
+            map[key] = r;
+        });
+
+        return map;
+    }, [advisorRating]);
+
     const renderItem = ({ item, index }: any) => {
         const isExpanded = expandedId === item?.id;
         const bgColor = accordionColors[index % accordionColors.length];
         const buttonColor = accordionButtonColors[index % accordionButtonColors.length];
         const progress = calculatePolicyProgress(item.policy_start_date, item.policy_end_date);
+
+        const advisorId = item?.user_id;
+        const user_rating_type = "Advisor";
+        const policyId = item?.id;
+
+        const key = `${advisorId}_${policyId}`;
+        const ratingData = advisorRatingMap[key];
         return (
             <View
                 style={{ backgroundColor: bgColor }}
@@ -287,7 +381,10 @@ export default function MyPolicies() {
                                 )?.toLowerCase() || "N/A"}
                             </Text>
                             <View className="flex-row flex-wrap items-start">
-                                {(policyType == 'motor' ? item?.mobile : item?.customer_mobile) && (
+                                <Text className="text-[#6C6060] text-[11px] leading-none font-kanit ml-1">
+                                    {policyType == 'motor' ? `Vehicle No. - ${item?.vehicle_number}` : `Policy No. - ${item?.policy_number}`}
+                                </Text>
+                                {/* {(policyType == 'motor' ? item?.mobile : item?.customer_mobile) && (
                                     <View className="flex-row items-center mr-3">
                                         <PhoneIcon size={14} weight="light" color="#6C6060" />
                                         <Text className="text-[#6C6060] text-[11px] leading-none font-kanit ml-1">
@@ -306,7 +403,7 @@ export default function MyPolicies() {
                                             {policyType == 'motor' ? item?.email || '' : item?.customer_email || ''}
                                         </Text>
                                     </View>
-                                )}
+                                )} */}
                             </View>
                         </View>
 
@@ -347,48 +444,70 @@ export default function MyPolicies() {
                             <View className="flex-row items-center mr-3">
                                 <View className="w-[5px] h-[5px] bg-[#6C6060] rounded-full mr-2"></View>
                                 <PhoneIcon size={14} weight="light" color="#6C6060" />
-                                <Text className="text-[#6C6060] text-[11px] font-kanit ml-1">
-                                    {item?.user?.mobile || ''}
-                                </Text>
+                                <TouchableOpacity onPress={() => item?.user?.mobile && Linking.openURL(`tel:${item?.user?.mobile}`)}>
+                                    <Text className="text-[#6C6060] underline text-[11px] font-kanit ml-1">
+                                        {item?.user?.mobile || ''}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
 
                             <View className="flex-row items-center flex-1">
                                 <View className="w-[5px] h-[5px] bg-[#6C6060] rounded-full mr-2"></View>
                                 <EnvelopeIcon size={14} weight="light" color="#6C6060" />
-                                <Text
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
-                                    className="text-[#6C6060] text-[11px] font-kanit ml-1 flex-1"
-                                >
-                                    {item?.user?.email || ''}
-                                </Text>
+                                <TouchableOpacity onPress={() => item?.user?.email && Linking.openURL(`mailto:${item?.user?.email}`)}>
+                                    <Text
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                        className="text-[#6C6060] underline text-[11px] font-kanit ml-1 flex-1"
+                                    >
+                                        {item?.user?.email || ''}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
-                        <View className="flex-row items-center w-full">
+                        <View className="flex-row items-center justify-between w-full">
+                            <View className="flex-row items-center gap-2">
+                                <Text
+                                    className={`text-[14px] font-kanit-medium text-[#24C279]`}
+                                >
+                                    {`Earning: ₹${item?.cp_total ? Number(item?.cp_total).toFixed(2) : 0.00}`}
+                                </Text>
 
-                            <Text
-                                className={`text-[14px] font-kanit-medium text-[#24C279]`}
-                            >
-                                {`Earning: ₹${item?.cp_total ? Number(item?.cp_total).toFixed(2) : 0.00}`}
-                            </Text>
-
-                            {(item?.policy_pdf && item?.policy_pdf !== 'null') && (
-                                <View className="flex-1 items-end ">
-                                    <TouchableOpacity
-                                        onPress={() =>
-                                            openPolicy(
-                                                item?.policy_pdf_url,
-                                                item?.policy_pdf,
-                                                item?.server_type
-                                            )
-                                        }
-                                        style={{ backgroundColor: buttonColor }}
-                                        className="h-[30px] w-[120px] items-center justify-center rounded-[16px]"
-                                    >
-                                        <Text className="text-black text-[12px] font-kanit-medium">View Policy Copy</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
+                                {(item?.policy_pdf && item?.policy_pdf !== 'null') && (
+                                    <View className="flex-1 items-end ">
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                openPolicy(
+                                                    item?.policy_pdf_url,
+                                                    item?.policy_pdf,
+                                                    item?.server_type
+                                                )
+                                            }
+                                            style={{ backgroundColor: buttonColor }}
+                                            className="h-[30px] w-[120px] items-center justify-center rounded-[16px]"
+                                        >
+                                            <Text className="text-black text-[12px] font-kanit-medium">View Policy Copy</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
+                            <AdvisorRating
+                                ratingData={ratingData}
+                                advisorId={advisorId}
+                                policyId={policyId}
+                                buttonColor={buttonColor}
+                                onRatePress={() => {
+                                    setSelectedRatingData({
+                                        advisor_id: advisorId,
+                                        policy_id: policyId,
+                                        advisor_name: item?.user?.name,
+                                        lob: item?.lob || "Motor",
+                                        user_rating_type: user_rating_type,
+                                        sub_agent_id: item?.sub_agent_id || ""
+                                    });
+                                    setIsRatingOpen(true);
+                                }}
+                            />
                         </View>
 
                     </View>
@@ -426,6 +545,47 @@ export default function MyPolicies() {
                                 key={tab.key}
                                 onPress={() => switchTab(index, tab.type)}
                                 style={{ width: TAB_WIDTH, marginHorizontal: 4 }}
+                                className={`h-[48px] items-center justify-center rounded-[53px] ${!isActive && "bg-[#1C1C1C]"
+                                    }`}
+                            >
+                                <Text
+                                    className={`text-[16px] font-kanit-medium ${isActive ? "text-black" : "text-white"
+                                        }`}
+                                >
+                                    {tab.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+            <View className="h-[60px] bg-[#ffffff14] rounded-[53px] relative overflow-hidden justify-center mb-3">
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    ref={statusScrollRef}
+                    contentContainerStyle={{
+                        paddingHorizontal: HORIZONTAL_PADDING,
+                        alignItems: "center",
+                    }}
+                >
+                    {/* Animated Background */}
+                    <Animated.View
+                        style={{
+                            width: STATUS_TAB_WIDTH,
+                            transform: [{ translateX: statusTranslateX }],
+                        }}
+                        className="absolute h-[48px] bg-[#FFBDA4] rounded-[53px] left-[3px] top-[6px]"
+                    />
+
+                    {STATUSTABS.map((tab, index) => {
+                        const isActive = statusIndex === index;
+
+                        return (
+                            <TouchableOpacity
+                                key={tab.key}
+                                onPress={() => switchStatusTab(index, tab.type)}
+                                style={{ width: STATUS_TAB_WIDTH, marginHorizontal: 4 }}
                                 className={`h-[48px] items-center justify-center rounded-[53px] ${!isActive && "bg-[#1C1C1C]"
                                     }`}
                             >
@@ -502,6 +662,32 @@ export default function MyPolicies() {
                     />
                 )
             }
+            <AdvisorRatingSheet
+                isOpen={isRatingOpen}
+                onClose={() => setIsRatingOpen(false)}
+                advisorName={selectedRatingData?.advisor_name}
+                onSubmit={async (data) => {
+                    try {
+                        const payload = {
+                            advisor_id: selectedRatingData?.advisor_id,
+                            policy_id: selectedRatingData?.policy_id,
+                            lob: selectedRatingData?.lob,
+                            user_id: selectedRatingData?.sub_agent_id, // 🔥 replace with logged-in user id
+                            user_type: "Sub Agent", // 🔥 dynamic if needed
+                            user_rating_type: selectedRatingData?.user_rating_type,
+                            ...data,
+                        };
+                        await submitAdvisorRating(payload);
+
+                        showAppToast(toast, "success", "Success", "Feedback submitted");
+
+                        fetchAdvisorRating();
+
+                    } catch (error) {
+                        showAppToast(toast, "error", "Error", "Failed to submit rating");
+                    }
+                }}
+            />
         </View>
     );
 }

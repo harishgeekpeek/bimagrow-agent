@@ -30,7 +30,7 @@ export default function Footer() {
     const [containerWidth, setContainerWidth] = useState(0);
 
     const translateX = useSharedValue(0);
-    const activeColor = useSharedValue(TABS[0].color);
+    const activeColor = useSharedValue(TABS[0]?.color);
 
     const TAB_WIDTH = containerWidth / TABS.length;
     const centerOffset = (TAB_WIDTH - CIRCLE_SIZE) / 2;
@@ -51,7 +51,7 @@ export default function Footer() {
             duration: 300,
         });
 
-        activeColor.value = TABS[index].color;
+        activeColor.value = TABS[index]?.color;
     }, [pathname, containerWidth]);
 
     const handlePress = (url: string) => {

@@ -35,6 +35,9 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { generatePDF } from 'react-native-html-to-pdf';
 // import RNFS from 'react-native-fs';
 import * as RNFS from 'react-native-fs';
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import { PermissionsAndroid } from "react-native";
+
 
 
 
@@ -71,8 +74,14 @@ export default function MyAdvisor() {
     const [modalVisible, setModalVisible] = useState(false)
     const [pickerMode, setPickerMode] = useState<"from" | "to">("from");
     const [pickerVisible, setPickerVisible] = useState(false);
-    const [fromDate, setFromDate] = useState<Date | null>(null);
-    const [toDate, setToDate] = useState<Date | null>(null);
+
+    const today = new Date();
+
+    // 1st day of current month
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const [fromDate, setFromDate] = useState<Date | null>(firstDayOfMonth);
+    const [toDate, setToDate] = useState<Date | null>(today);
 
 
     const fetchLedgerDetail = async (
@@ -207,6 +216,10 @@ export default function MyAdvisor() {
                             <Text ellipsizeMode="tail" className="text-[#6C6060] text-[12px] leading-none font-kanit">{item?.ledger_type || ''}</Text>
                         </View>
 
+                        <Text className={`text-[14px] font-kanit ${item?.type == 'credit' ? 'text-[#008000]' : 'text-[#FF0000]'}`}>
+                            {`${item?.type == 'credit' ? '+' : '-'}₹${formatAmount(item?.amount)}/-`}
+                        </Text>
+
                         <View className="w-[18px] h-[18px] border-[1px] border-[#6C6060] items-center justify-center rounded-[5px] ">
                             {isExpanded ? (
                                 <CaretUpIcon size={14} color="#6C6060" />
@@ -336,263 +349,8 @@ export default function MyAdvisor() {
             console.log('error while apply filter', error)
         } finally {
             setModalVisible(false)
-            setFromDate(null)
-            setToDate(null)
         }
     };
-
-    //     const generateHTML = (data: any) => {
-    //         const rows = (data?.data || [])
-    //             .map((item: any) => {
-    //                 let desc = "";
-    //                 try {
-    //                     const parsed = item.description ? JSON.parse(item.description) : {};
-    //                     desc = Object.entries(parsed)
-    //                         .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
-    //                         .join("<br/>");
-    //                 } catch {
-    //                     desc = item.description || "-";
-    //                 }
-
-    //                 return `
-    //         <tr>
-    //           <td>${item.ledgerdate}</td>
-    //           <td>
-    //             <div class="desc">${item.amount_type}</div>
-    //             <div class="sub">${desc}</div>
-    //           </td>
-    //           <td>
-    //             <span class="badge ${item.type}">
-    //               ${item.type.toUpperCase()}
-    //             </span>
-    //           </td>
-    //           <td class="${item.type}">
-    //             ₹${formatAmount(item?.amount)}/-
-    //           </td>
-    //           <td class="balance ${item.newbalance < 0 ? 'debit' : 'credit'}">
-    //             ₹${formatAmount(item?.newbalance)}/-
-    //           </td>
-    //         </tr>
-    //       `;
-    //             })
-    //             .join("");
-
-    //         return `
-    //   <html>
-    //   <head>
-    //     <style>
-    //       body {
-    //         font-family: 'Segoe UI', sans-serif;
-    //         padding: 20px;
-    //         background: #f6f8fb;
-    //         color: #1a1a1a;
-    //       }
-
-    //       .credit { color: #16a34a; } /* green */
-    //       .debit { color: #dc2626; } /* red */
-
-    //       /* HEADER */
-    //       .header {
-    //         background: linear-gradient(135deg, #6a5acd, #8a7fff);
-    //         color: white;
-    //         padding: 20px;
-    //         border-radius: 16px;
-    //         margin-bottom: 20px;
-    //       }
-
-    //       .header h1 {
-    //         margin: 0;
-    //         font-size: 22px;
-    //       }
-
-    //       .header p {
-    //         margin: 5px 0 0;
-    //         font-size: 13px;
-    //         opacity: 0.9;
-    //       }
-
-    //       /* USER CARD */
-    //       .card {
-    //         background: white;
-    //         border-radius: 12px;
-    //         padding: 15px;
-    //         margin-bottom: 20px;
-    //         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    //       }
-
-    //       .row {
-    //         display: flex;
-    //         justify-content: space-between;
-    //         margin-bottom: 6px;
-    //         font-size: 13px;
-    //       }
-
-    //       /* SUMMARY */
-    //       .summary {
-    //         display: flex;
-    //         justify-content: space-between;
-    //         gap: 10px;
-    //         margin-bottom: 20px;
-    //       }
-
-    //       .summary-box {
-    //         flex: 1;
-    //         background: white;
-    //         border-radius: 12px;
-    //         padding: 10px;
-    //         text-align: center;
-    //         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    //       }
-
-    //       .summary-box h4 {
-    //         margin: 0;
-    //         font-size: 12px;
-    //         color: #666;
-    //       }
-
-    //       .summary-box p {
-    //         margin: 5px 0 0;
-    //         font-size: 16px;
-    //         font-weight: bold;
-    //       }
-
-    //       .credit { color: #16a34a; }
-    //       .debit { color: #dc2626; }
-
-    //       /* TABLE */
-    //       table {
-    //         width: 100%;
-    //         border-collapse: collapse;
-    //         background: white;
-    //         border-radius: 12px;
-    //         overflow: hidden;
-    //         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    //       }
-
-    //       th {
-    //         background: #f1f5f9;
-    //         font-size: 12px;
-    //         padding: 10px;
-    //         text-align: left;
-    //       }
-
-    //       td {
-    //         padding: 10px;
-    //         font-size: 12px;
-    //         border-top: 1px solid #eee;
-    //         vertical-align: middle;
-    //       }
-
-    //       .desc {
-    //         font-weight: 600;
-    //       }
-
-    //       .sub {
-    //         font-size: 11px;
-    //         color: #666;
-    //       }
-
-    //       /* BADGES */
-    //       .badge {
-    //         padding: 4px 8px;
-    //         border-radius: 6px;
-    //         font-size: 10px;
-    //         font-weight: bold;
-    //       }
-
-    //       .badge.credit {
-    //         background: #dcfce7;
-    //         color: #16a34a;
-    //       }
-
-    //       .badge.debit {
-    //         background: #fee2e2;
-    //         color: #dc2626;
-    //       }
-
-    //       .balance {
-    //         font-weight: bold;
-    //       }
-
-    //       /* FOOTER */
-    //       .footer {
-    //         margin-top: 20px;
-    //         font-size: 11px;
-    //         text-align: center;
-    //         color: #666;
-    //       }
-
-    //     </style>
-    //   </head>
-
-    //   <body>
-
-    //     <!-- HEADER -->
-    //     <div class="header">
-    //       <h1>Ledger Statement</h1>
-    //       <p>${data?.from_date} → ${data?.to_date}</p>
-    //     </div>
-
-    //     <!-- USER INFO -->
-    //     <div class="card">
-    //       <div class="row"><b>User:</b> ${data?.userdata?.user_name}</div>
-    //       <div class="row"><b>Agent:</b> ${data?.agentdata?.agent_name}</div>
-    //       <div class="row"><b>Phone:</b> ${data?.agentdata?.agent_mobile}</div>
-    //     </div>
-
-    //     <!-- SUMMARY -->
-    //     <div class="summary">
-    //       <div class="summary-box">
-    //         <h4>Opening</h4>
-    //         <p class="credit">
-    //         ₹${formatAmount(data?.opening_bal)}/-
-    //         </p>
-    //       </div>
-    //       <div class="summary-box">
-    //         <h4>Credit</h4>
-    //         <p class="credit">
-    //         ₹${formatAmount(data?.totalcredit)}/-
-    //         </p>
-    //       </div>
-    //       <div class="summary-box">
-    //         <h4>Debit</h4>
-    //         <p class="debit">
-    //         ₹${formatAmount(data?.totaldebit)}/-
-    //         </p>
-    //       </div>
-    //       <div class="summary-box">
-    //         <h4>Closing</h4>
-    //         <p class="${data?.closing_bal < 0 ? 'debit' : 'credit'}">
-    //         ₹${formatAmount(data?.closing_bal)}/-
-    //         </p>
-    //       </div>
-    //     </div>
-
-    //     <!-- TABLE -->
-    //     <table>
-    //       <thead>
-    //         <tr>
-    //           <th>Date</th>
-    //           <th>Details</th>
-    //           <th>Type</th>
-    //           <th>Amount</th>
-    //           <th>Balance</th>
-    //         </tr>
-    //       </thead>
-    //       <tbody>
-    //         ${rows}
-    //       </tbody>
-    //     </table>
-
-    //     <!-- FOOTER -->
-    //     <div class="footer">
-    //       Powered by iAgency • Smart Insurance Software
-    //     </div>
-
-    //   </body>
-    //   </html>
-    //   `;
-    //     };
 
     const generateHTML = (data: any) => {
         const rows = (data?.data || [])
@@ -836,7 +594,7 @@ export default function MyAdvisor() {
 
     <div class="info-grid">
         <div class="info-box">
-        <div class="label">User Name</div>
+        <div class="label">Advisor Name</div>
         <div class="value">${data?.userdata?.user_name || '-'}</div>
 
         <div class="label">Mobile</div>
@@ -906,35 +664,40 @@ export default function MyAdvisor() {
 
     <!-- FOOTER -->
     <div class="footer">
-      Powered by iAgency • Smart Insurance Software
+      Powered by BimaGrow Insurance Software
     </div>
 
   </body>
   </html>
   `;
     };
-    const downloadPDF = async (results: any) => {
+
+    const downloadPDF = async (results: any, data: any) => {
         try {
-            const timestamp = Date.now(); // milliseconds
-            // const destPath = `${RNFS.DownloadDirectoryPath}/statement_${Date.now()}.pdf`;
-            const destPath = `${RNFS.DownloadDirectoryPath}/${downloadData?.agentdata?.agent_name}'s Statement.pdf`;
+            const cleanName = (`${data?.agentdata?.agent_name}'s Statement` || "Ledger Statement");
+            const fileName = `${cleanName}.pdf`;
+            const res = await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
+                {
+                    name: fileName,
+                    parentFolder: "",
+                    mimeType: "application/pdf",
+                },
+                "Download",
+                results.filePath
+            );
 
-            await RNFS.copyFile(results.filePath, destPath);
+            showAppToast(toast, "success", "Downloaded", "Saved to Downloads!");
 
-            if (destPath) {
-                showAppToast(toast, "success", "Downloaded", "Statement Downloaded Sucessfully!");
-            }
-            else {
-                showAppToast(
-                    toast,
-                    "error",
-                    "Error",
-                    "Something went wrong."
+            setTimeout(() => {
+                ReactNativeBlobUtil.android.actionViewIntent(
+                    res,
+                    "application/pdf"
                 );
-            }
-            console.log('PDF saved to:', destPath);
+            }, 800);
+
         } catch (error) {
-            console.log(error)
+            console.log("Download error:", error);
+            showAppToast(toast, "error", "Error", "Download failed");
         }
     };
 
@@ -948,7 +711,7 @@ export default function MyAdvisor() {
         };
 
         let results = await generatePDF(options);
-        await downloadPDF(results);
+        await downloadPDF(results, data);
     };
     return (
         <View className="flex-1 py-[20px]">

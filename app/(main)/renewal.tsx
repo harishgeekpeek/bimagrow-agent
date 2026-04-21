@@ -51,7 +51,7 @@ const accordionButtonColors = [
 export default function MyRenewals() {
     const toast = useToast();
     const { search } = useSearch();
-
+    const [allPolicies, setAllPolicies] = useState<any[]>([]);
     const [policies, setPolicies] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -73,11 +73,57 @@ export default function MyRenewals() {
         { key: "other", label: "Other", type: "other" },
     ];
 
+    const STATUSTABS = [
+        { key: "expiring", label: "Expiring", type: "expiring" },
+        { key: "expired", label: "Expired", type: "expired" },
+    ]
+
+    const [statusType, setStatusType] = useState("expiring");
+
     const TAB_WIDTH = 100;
     const HORIZONTAL_PADDING = 2;
     const TAB_SPACING = 8;
     const [activeIndex, setActiveIndex] = useState(0);
     const scrollRef = useRef<ScrollView>(null);
+
+    const [statusIndex, setStatusIndex] = useState(0);
+    const statusSlideAnim = useRef(new Animated.Value(0)).current;
+    const statusScrollRef = useRef<ScrollView>(null);
+
+    const STATUS_TAB_WIDTH = 176;
+
+    const switchStatusTab = (index: number, type: string) => {
+        setStatusIndex(index);
+        setStatusType(type); // ✅ store API value
+        setOffset(0);
+        setExpandedId(null);
+
+        setPolicies([]);
+        setTabLoading(true);
+
+        fetchRenewals(false, 0, lobType, type); // ✅ pass status
+
+        Animated.timing(statusSlideAnim, {
+            toValue: index,
+            duration: 250,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+        }).start();
+
+        statusScrollRef.current?.scrollTo({
+            x: Math.max(0, index * STATUS_TAB_WIDTH - STATUS_TAB_WIDTH),
+            animated: true,
+        });
+    };
+
+    const statusTranslateX = statusSlideAnim.interpolate({
+        inputRange: [0, STATUSTABS.length - 1],
+        outputRange: [
+            HORIZONTAL_PADDING,
+            HORIZONTAL_PADDING +
+            (STATUS_TAB_WIDTH + TAB_SPACING) * (STATUSTABS.length - 1),
+        ],
+    });
 
     const switchTab = (index: number, type: string) => {
         if (type === lobType) return;
@@ -90,7 +136,7 @@ export default function MyRenewals() {
         setPolicies([]);        // ✅ Clear old list immediately
         setTabLoading(true);    // ✅ Show skeleton
 
-        fetchRenewals(false, 0, type);
+        fetchRenewals(false, 0, type, statusType);
 
         Animated.timing(slideAnim, {
             toValue: index,
@@ -117,7 +163,8 @@ export default function MyRenewals() {
     const fetchRenewals = async (
         isLoadMore = false,
         customOffset?: number,
-        type?: string
+        type?: string,
+        status?: string
     ) => {
         try {
             if (isLoadMore) {
@@ -128,13 +175,14 @@ export default function MyRenewals() {
 
             const finalOffset = customOffset ?? offset;
             const finalType = type ?? lobType;
+            const finalStatus = status ?? statusType;
 
             let res;
 
             if (finalType === "motor") {
-                res = await getMotorRenewals(search, finalOffset, limit);
+                res = await getMotorRenewals(search, finalOffset, limit, finalStatus);
             } else {
-                res = await getXMotorRenewals(search, finalType, finalOffset, limit);
+                res = await getXMotorRenewals(search, finalType, finalOffset, limit, finalStatus);
             }
 
             if (res?.status) {
@@ -161,7 +209,7 @@ export default function MyRenewals() {
         useCallback(() => {
             setOffset(0);
             setExpandedId(null);
-            fetchRenewals(false, 0);
+            fetchRenewals(false, 0, lobType, statusType);
         }, [])
     );
     const isFirstRender = useRef(true);
@@ -174,7 +222,7 @@ export default function MyRenewals() {
             const delay = setTimeout(() => {
                 setOffset(0);
                 setExpandedId(null);
-                fetchRenewals(false, 0);
+                fetchRenewals(false, 0, lobType, statusType);
             }, 500);
 
             return () => clearTimeout(delay);
@@ -185,7 +233,7 @@ export default function MyRenewals() {
         setRefreshing(true);
         setOffset(0);
         setExpandedId(null);
-        await fetchRenewals(false, 0);
+        await fetchRenewals(false, 0, lobType, statusType);
     };
 
     const handleLoadMore = async () => {
@@ -193,7 +241,7 @@ export default function MyRenewals() {
 
         const newOffset = policies.length;
         setOffset(newOffset);
-        await fetchRenewals(true, newOffset);
+        await fetchRenewals(true, newOffset, lobType, statusType);
     };
 
     const hasMore = policies.length < totalCount;
@@ -330,7 +378,10 @@ export default function MyRenewals() {
                                 )?.toLowerCase() || "N/A"}
                             </Text>
                             <View className="flex-row flex-wrap items-start">
-                                {(lobType == 'motor' ? item?.mobile : item?.customer_mobile) && (
+                                <Text className="text-[#6C6060] text-[11px] leading-none font-kanit ml-1">
+                                    {lobType == 'motor' ? `Vehicle No. - ${item?.vehicle_number}` : `Policy No. - ${item?.policy_number}`}
+                                </Text>
+                                {/* {(lobType == 'motor' ? item?.mobile : item?.customer_mobile) && (
                                     <View className="flex-row items-center mr-3">
                                         <PhoneIcon size={14} weight="light" color="#6C6060" />
                                         <Text className="text-[#6C6060] text-[11px] leading-none font-kanit ml-1">
@@ -349,7 +400,7 @@ export default function MyRenewals() {
                                             {lobType == 'motor' ? item?.email || '' : item?.customer_email || ''}
                                         </Text>
                                     </View>
-                                )}
+                                )} */}
                             </View>
                         </View>
 
@@ -400,21 +451,25 @@ export default function MyRenewals() {
                             <View className="flex-row items-center mr-3">
                                 <View className="w-[5px] h-[5px] bg-[#6C6060] rounded-full mr-2"></View>
                                 <PhoneIcon size={14} weight="light" color="#6C6060" />
-                                <Text className="text-[#6C6060] text-[11px] font-kanit ml-1">
-                                    {item?.user?.mobile || ''}
-                                </Text>
+                                <TouchableOpacity onPress={() => item?.user?.mobile && Linking.openURL(`tel:${item?.user?.mobile}`)}>
+                                    <Text className="text-[#6C6060] underline text-[11px] font-kanit ml-1">
+                                        {item?.user?.mobile || ''}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
 
                             <View className="flex-row items-center flex-1">
                                 <View className="w-[5px] h-[5px] bg-[#6C6060] rounded-full mr-2"></View>
                                 <EnvelopeIcon size={14} weight="light" color="#6C6060" />
-                                <Text
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
-                                    className="text-[#6C6060] text-[11px] font-kanit ml-1 flex-1"
-                                >
-                                    {item?.user?.email || ''}
-                                </Text>
+                                <TouchableOpacity onPress={() => item?.user?.email && Linking.openURL(`mailto:${item?.user?.email}`)}>
+                                    <Text
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                        className="text-[#6C6060] underline text-[11px] font-kanit ml-1 flex-1"
+                                    >
+                                        {item?.user?.email || ''}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
                         {/* {(item?.policy_pdf_url || item?.policy_pdf) && (
@@ -503,6 +558,47 @@ export default function MyRenewals() {
                                 key={tab.key}
                                 onPress={() => switchTab(index, tab.type)}
                                 style={{ width: TAB_WIDTH, marginHorizontal: 4 }}
+                                className={`h-[48px] items-center justify-center rounded-[53px] ${!isActive && "bg-[#1C1C1C]"
+                                    }`}
+                            >
+                                <Text
+                                    className={`text-[16px] font-kanit-medium ${isActive ? "text-black" : "text-white"
+                                        }`}
+                                >
+                                    {tab.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+            <View className="h-[60px] bg-[#ffffff14] rounded-[53px] relative overflow-hidden justify-center mb-3">
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    ref={statusScrollRef}
+                    contentContainerStyle={{
+                        paddingHorizontal: HORIZONTAL_PADDING,
+                        alignItems: "center",
+                    }}
+                >
+                    {/* Animated Background */}
+                    <Animated.View
+                        style={{
+                            width: STATUS_TAB_WIDTH,
+                            transform: [{ translateX: statusTranslateX }],
+                        }}
+                        className="absolute h-[48px] bg-[#84C8F9] rounded-[53px] left-[3px] top-[6px]"
+                    />
+
+                    {STATUSTABS.map((tab, index) => {
+                        const isActive = statusIndex === index;
+
+                        return (
+                            <TouchableOpacity
+                                key={tab.key}
+                                onPress={() => switchStatusTab(index, tab.type)}
+                                style={{ width: STATUS_TAB_WIDTH, marginHorizontal: 4 }}
                                 className={`h-[48px] items-center justify-center rounded-[53px] ${!isActive && "bg-[#1C1C1C]"
                                     }`}
                             >

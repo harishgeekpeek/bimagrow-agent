@@ -89,8 +89,8 @@ export default function LoginScreen() {
                     params: { mobile: phone },
                 });
             } else {
-                showAppToast(toast, "error", "Error", 'Failed to send OTP.');
-                console.log(res?.message)
+                showAppToast(toast, "error", "Error", res?.message || 'Failed to send OTP.');
+                console.log('error while send otp--', res?.message)
             }
         } catch (error: any) {
             showAppToast(toast, "error", "Error", error?.response?.data?.message || "Something went wrong");
